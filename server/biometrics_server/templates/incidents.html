@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import help, level, outcome with context %}
+{% block title %}Incidents{% endblock %}
+{% block content %}
+<h1>Incidents</h1>
+<p class="sub">Every challenge, alert and critical, newest first. Open one to see which parameters were flagged, why, and each one's SHAP impact.</p>
+
+<div class="tabs">
+  <a href="{{ url_for('incidents') }}" class="{{ 'active' if not host_id }}">All users</a>
+  {% for h in hosts %}
+    <a href="{{ url_for('incidents', host=h.host_id) }}" class="{{ 'active' if h.host_id == host_id }}">{{ h.user or '?' }} <span class="muted">@ {{ h.host_id }}</span> <span class="count">{{ h.incidents_24h }}</span></a>
+  {% endfor %}
+</div>
+
+{% if incidents %}
+<div class="table-wrap boxed">
+<table>
+  <thead><tr>
+    <th>Time</th>{% if not host_id %}<th>User</th>{% endif %}<th>Level</th>
+    <th class="num">Score {{ help('impostor_score') }}</th><th>Why</th><th>Flagged parameters</th><th>Answer</th>
+  </tr></thead>
+  <tbody>
+  {% for i in incidents %}{% set d = i.data %}
+    <tr data-event-id="{{ i.id }}" class="clickable" onclick="location.href='{{ url_for('incident', incident_id=i.incident_id) }}'">
+      <td class="nowrap mono"><a href="{{ url_for('incident', incident_id=i.incident_id) }}">{{ i.time|dt }}</a><span class="new-flag">new</span></td>
+      {% if not host_id %}<td class="nowrap">{{ users.get(i.host_id) or '?' }} <span class="muted">@ {{ i.host_id }}</span></td>{% endif %}
+      <td>{{ level(i.level) }}</td>
+      <td class="num">{{ d.impostor_score|pct }}</td>
+      <td class="muted">{{ glossary.TRIGGERS.get(d.trigger, d.trigger) }}</td>
+      <td>
+        {% set flagged = d.reasons|selectattr('direction', 'in', ['higher', 'lower'])|list %}
+        {% for r in flagged[:3] %}<span class="chip">{{ feature(r.feature)[0] }} {{ '↑' if r.direction == 'higher' else '↓' }}</span>{% endfor %}
+        {% if flagged|length > 3 %}<span class="muted">+{{ flagged|length - 3 }}</span>{% endif %}
+        {% if not flagged %}<span class="muted">{{ 'combination of features' if d.reasons else '–' }}</span>{% endif %}
+      </td>
+      <td class="nowrap">{{ outcome(i.response) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<div class="panel empty">No incidents{{ ' for this user' if host_id }}.</div>{% endif %}
+{% endblock %}

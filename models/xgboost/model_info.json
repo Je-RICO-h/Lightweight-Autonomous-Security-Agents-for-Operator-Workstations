@@ -1,0 +1,32 @@
+{
+  "trained_at": "2026-09-24T22:11:16",
+  "algorithm": "XGBoost binary classifier (User vs Other)",
+  "n_estimators": 100,
+  "params": {
+    "eta": 0.1,
+    "max_depth": 5,
+    "subsample": 0.7,
+    "colsample_bytree": 0.7,
+    "reg_alpha": 0.1,
+    "reg_lambda": 0.1
+  },
+  "params_note": "Assumed project defaults: this model was trained before model_info.json existed, and saved XGBoost models do not store their training hyperparameters.",
+  "n_features": 609,
+  "train_rows": 8000,
+  "test_rows": 2764,
+  "accuracy": 0.9801013024602026,
+  "per_class": {
+    "Other": {
+      "precision": 0.9945839487936977,
+      "recall": 0.9786821705426356,
+      "f1-score": 0.9865689865689866,
+      "support": 2064.0
+    },
+    "User": {
+      "precision": 0.9399727148703957,
+      "recall": 0.9842857142857143,
+      "f1-score": 0.9616189811584089,
+      "support": 700.0
+    }
+  }
+}

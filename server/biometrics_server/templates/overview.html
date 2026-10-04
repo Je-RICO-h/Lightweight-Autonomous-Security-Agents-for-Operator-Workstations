@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "_macros.html" import help, level, controls with context %}
+{% block title %}Hosts{% endblock %}
+{% block content %}
+<h1>Monitored hosts</h1>
+<p class="sub">Every protection agent that has reported to this server. Each agent decides on its own machine; this page shows what it decided.</p>
+
+<div class="tiles">
+  <div class="panel tile"><div class="label">Online {{ help('online') }}</div>
+    <div class="value">{{ online_count }} <small>/ {{ hosts|length }}</small></div></div>
+  <div class="panel tile"><div class="label">Incidents, last 24 h</div>
+    <div class="value">{{ summary.incidents }}</div></div>
+  <div class="panel tile"><div class="label">Critical, last 24 h {{ help('critical') }}</div>
+    <div class="value" style="{{ 'color: var(--critical)' if summary.critical }}">{{ summary.critical }}</div></div>
+  <div class="panel tile"><div class="label">Unanswered, last 24 h</div>
+    <div class="value">{{ summary.unanswered }}</div></div>
+</div>
+
+<h2>Hosts</h2>
+{% if hosts %}
+<div class="table-wrap boxed">
+<table>
+  <thead><tr>
+    <th>Host</th><th>User</th><th>State</th>
+    <th class="num">Last score {{ help('impostor_score') }}</th>
+    <th class="num">Incidents 24 h</th>
+    <th>Last incident</th><th>Last seen</th><th>Lock {{ help('lock') }}</th>
+  </tr></thead>
+  <tbody>
+  {% for h in hosts %}
+    {% set s = h.status %}
+    <tr data-host="{{ h.host_id }}">
+      <td class="nowrap"><span class="dot {{ 'on' if online(h) }}" title="{{ 'online' if online(h) else 'offline' }}"></span><a href="{{ url_for('host', host_id=h.host_id) }}">{{ h.host_id }}</a><span class="new-flag" title="New incident since you last opened Incidents">new incident</span></td>
+      <td>{{ h.user or '–' }}</td>
+      <td class="nowrap">
+        {% if not online(h) %}<span class="badge">offline</span>
+        {% else %}
+          {% if s.open_incident %}{{ level(s.open_incident) }} <span class="muted">on screen</span>
+          {% else %}{{ level(s.last_level or 'allow') }}{% endif %}
+          {% if s.armed %} <span class="badge armed" title="{{ glossary.TERMS.armed[1] }}">armed</span>{% endif %}
+        {% endif %}
+      </td>
+      <td class="num">{{ s.last_score|pct }}</td>
+      <td class="num"><a href="{{ url_for('incidents', host=h.host_id) }}">{{ h.incidents_24h }}</a>{% if h.critical_24h %} <span class="badge critical">{{ h.critical_24h }} critical</span>{% endif %}</td>
+      <td class="nowrap">{{ h.last_incident|ago if h.last_incident else '–' }}</td>
+      <td class="nowrap muted">{{ h.last_seen|ago }}</td>
+      <td>{{ controls(h, show_refine=false) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="panel empty">
+  No agent has connected yet. On a monitored machine run<br>
+  <code class="mono">biometrics infer --server {{ request.host_url.rstrip('/') }}</code><br>
+  or pick "Run live inference" in <code class="mono">run.py</code> and enter this server's URL.
+</div>
+{% endif %}
+{% endblock %}

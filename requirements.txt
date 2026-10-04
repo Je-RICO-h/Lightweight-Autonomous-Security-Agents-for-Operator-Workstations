@@ -1,0 +1,21 @@
+# Exact versions of the project's .venv (Python 3.13), with which the agent,
+# the dashboard and the paper's results were run.
+#
+#   python -m venv .venv
+#   .venv/bin/pip install -r requirements.txt
+#   .venv/bin/pip install -e . --no-deps
+#
+# The popups need tkinter, which comes with the system Python (e.g. python3-tk).
+
+# agent: collector, training, inference
+xgboost==3.4.1
+joblib==1.6.0
+numpy==2.5.3
+pandas==3.0.6
+scikit-learn==1.9.1
+pynput==1.8.2
+shap==0.52.0
+requests==2.34.2
+
+# dashboard server
+Flask==3.1.3

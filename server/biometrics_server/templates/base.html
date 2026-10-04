@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} · Biometrics Agent</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-live="{% block live %}1{% endblock %}" data-live-url="{{ url_for('api_live') }}"
+      data-refresh-ms="{{ (refresh_seconds * 1000)|int }}"
+      data-incidents-page="{{ '1' if request.endpoint == 'incidents' else '0' }}">
+<header>
+  <div class="inner">
+    <a class="brand" href="{{ url_for('overview') }}">Biometrics Agent <span>dashboard</span></a>
+    <nav>
+      {% set ep = request.endpoint %}
+      <a href="{{ url_for('overview') }}" class="{{ 'active' if ep in ('overview', 'host') }}">Hosts</a>
+      <a href="{{ url_for('incidents') }}" class="{{ 'active' if ep in ('incidents', 'incident') }}">Incidents <span id="new-incidents" class="nav-flag" hidden></span></a>
+      <a href="{{ url_for('statistics') }}" class="{{ 'active' if ep == 'statistics' }}">Statistics</a>
+      <a href="{{ url_for('logs') }}" class="{{ 'active' if ep == 'logs' }}">Logs</a>
+      <a href="{{ url_for('help_page') }}" class="{{ 'active' if ep == 'help_page' }}">Help</a>
+    </nav>
+    <span class="live-dot" title="This page updates itself every {{ '%g'|format(refresh_seconds) }} s">live</span>
+  </div>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<div id="toasts" aria-live="polite"></div>
+<script src="{{ url_for('static', filename='live.js') }}"></script>
+</body>
+</html>

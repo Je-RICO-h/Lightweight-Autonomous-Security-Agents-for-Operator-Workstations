@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "_macros.html" import help, level, outcome, threshold_scale, reasons with context %}
+{% block title %}{{ i.level|capitalize }} on {{ i.host_id }}{% endblock %}
+{% block content %}
+{% set d = i.data %}
+<p class="note"><a href="{{ url_for('incidents', host=i.host_id) }}">← all incidents for {{ host.user if host else i.host_id }}</a></p>
+<div class="title-row">
+  <div>
+    <h1>{{ level(i.level) }} on <a href="{{ url_for('host', host_id=i.host_id) }}">{{ i.host_id }}</a></h1>
+    <p class="sub">{{ i.time|dt }} · user {{ host.user if host else '?' }} · incident <span class="mono">{{ i.incident_id }}</span></p>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="panel">
+    <h2 class="first">What happened</h2>
+    <dl class="facts">
+      <dt>Level {{ help(i.level) }}</dt><dd>{{ glossary.LEVELS[i.level] }}</dd>
+      <dt>Why now</dt><dd>{{ glossary.TRIGGERS.get(d.trigger, d.trigger) }}
+        {% if d.follows %}<br><a href="{{ url_for('incident', incident_id=d.follows) }}">escalated from the previous incident →</a>{% endif %}</dd>
+      {% if d.label %}<dt>Model output {{ help('confidence') }}</dt><dd>label <em>{{ d.label }}</em> with {{ d.confidence|pct }} confidence</dd>{% endif %}
+      <dt>Impostor score {{ help('impostor_score') }}</dt><dd><strong>{{ d.impostor_score|pct }}</strong></dd>
+      <dt>User's answer</dt>
+      <dd>{{ outcome(i.response) }}{% if i.response %} at {{ i.response.time|dt }}<br><span class="muted">{{ glossary.OUTCOMES[i.response.data.outcome] }}</span>{% else %} <span class="muted">{{ glossary.OUTCOMES[None] }}</span>{% endif %}</dd>
+    </dl>
+    {% for n in i.notes %}<p class="note">Agent, {{ n.time|dt }}: {{ n.data.text }}</p>{% endfor %}
+  </div>
+  <div class="panel">
+    <h2 class="first">Score against the thresholds</h2>
+    {% set t = d.thresholds if d.thresholds and d.thresholds.tau_warn is not none else (host.model.thresholds if host else none) %}
+    {% if t %}
+      {{ threshold_scale(t, last=d.impostor_score, marker_label='this incident') }}
+      <p class="note">The marker is this incident's impostor score. Windows above τ warn count toward a challenge, and windows above τ critical count toward an alert.
+        {% if d.thresholds and d.thresholds.tau_warn is not none %}These are the thresholds the agent used at the time.{% else %}This incident predates threshold snapshots, so the host's current thresholds are shown.{% endif %}</p>
+    {% else %}<p class="muted">The host's model is unknown.</p>{% endif %}
+  </div>
+</div>
+
+<h2>What was wrong</h2>
+{% if d.reasons %}
+<p class="note">The features that pushed this window toward "not the enrolled user", strongest first. <strong>Flagged</strong> means the value was outside the user's usual range (the middle 50% of their own training data).</p>
+{{ reasons(d.reasons) }}
+<div class="panel explainer">
+  <h3>How to read the SHAP score</h3>
+  <p>The model adds up evidence in <em>log-odds</em>. For this one window, SHAP splits the model's decision into one contribution per feature. A feature with SHAP +1.0 made "someone else is typing" about e<sup>1.0</sup> ≈ 2.7× more likely than the model's average starting point, and +0.5 made it ≈ 1.6× more likely. Contributions add up, so several moderate features together can outweigh one large one.</p>
+  <p>Only features with a positive contribution (pointing away from the user) are listed. Features that looked like the user are left out.</p>
+</div>
+{% elif d.trigger == 'supervisor_lockout' %}
+<div class="panel empty">This lock was sent from the dashboard, not triggered by the model, so there are no flagged parameters.</div>
+{% else %}
+<div class="panel empty">No per-feature reasons were reported for this incident.</div>
+{% endif %}
+{% endblock %}

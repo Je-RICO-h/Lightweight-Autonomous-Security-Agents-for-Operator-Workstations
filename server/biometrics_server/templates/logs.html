@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Logs{% endblock %}
+{% block content %}
+<h1>Logs</h1>
+<p class="sub">Everything the agents reported, newest first: connections, incidents, the users' answers, and agent notes.</p>
+
+<form class="filters" method="get">
+  <select name="host" onchange="this.form.submit()">
+    <option value="">All hosts</option>
+    {% for h in hosts %}<option value="{{ h.host_id }}" {{ 'selected' if h.host_id == host_id }}>{{ h.host_id }} ({{ h.user }})</option>{% endfor %}
+  </select>
+  <select name="kind" onchange="this.form.submit()">
+    <option value="">All events</option>
+    {% for k, label in [('incident', 'Incidents'), ('response', 'User answers'), ('note', 'Agent notes'), ('command', 'Dashboard commands'), ('connected', 'Connects'), ('disconnected', 'Disconnects')] %}
+      <option value="{{ k }}" {{ 'selected' if k == kind }}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button>Filter</button></noscript>
+</form>
+
+{% set log = events %}{% set show_host = true %}
+{% include "_log_table.html" %}
+{% if older %}<p><a href="{{ url_for('logs', host=host_id, kind=kind, before=older) }}">Older →</a></p>{% endif %}
+{% endblock %}

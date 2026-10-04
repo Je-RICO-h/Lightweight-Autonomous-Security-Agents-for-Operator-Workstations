@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% from "_macros.html" import help, controls, threshold_scale with context %}
+{% block title %}Statistics{% endblock %}
+{% block content %}
+<h1>Statistics</h1>
+<p class="sub">Each user's model and live typing statistics. The markers move with every window the agent scores. Key and key-combination frequencies are never sent here, only timing statistics.</p>
+
+{% for h in hosts %}
+{% set m = h.model %}{% set t = m.thresholds %}{% set info = m.info or {} %}{% set s = h.status %}
+<section class="panel stat-card" id="{{ h.host_id }}">
+  <div class="title-row">
+    <h2 class="first"><span class="dot {{ 'on' if online(h) }}"></span>{{ h.user or '?' }} <span class="muted">@</span> <a href="{{ url_for('host', host_id=h.host_id) }}">{{ h.host_id }}</a>
+      <span class="mono small muted">model {{ m.hash }}</span> {{ help('model_hash') }}</h2>
+    {{ controls(h) }}
+  </div>
+  <p class="note">{{ info.algorithm or 'XGBoost' }} · trained {{ info.trained_at or 'unknown' }} · loaded {{ m.loaded_at or '–' }}
+    {% if s.refine and s.refine.state == 'running' %} · <strong>refining now…</strong>{% elif s.refine and s.refine.message %} · {{ s.refine.message }}{% endif %}</p>
+
+  {% if t %}
+  <h3>Decision thresholds {{ help('recent_scores') }}</h3>
+  {{ threshold_scale(t, recent=s.recent_scores if online(h) else [], last=s.last_score if online(h) else none) }}
+  <p class="note">{% if online(h) and s.last_score is not none %}Large marker = latest window ({{ s.last_score|pct }}); dots = the last {{ s.recent_scores|length }} windows.{% else %}No live scores: the agent is offline or hasn't scored a window yet.{% endif %}</p>
+
+  <div class="grid3">
+    <table class="boxed">
+      <tbody>
+        <tr><td>τ warn {{ help('tau_warn') }}</td><td class="num mono">{{ '%.4f'|format(t.tau_warn) }}</td></tr>
+        <tr><td>τ critical {{ help('tau_critical') }}</td><td class="num mono">{{ '%.4f'|format(t.tau_critical) }}</td></tr>
+        <tr><td>EER {{ help('eer') }}</td><td class="num mono">{{ '%.2f%%'|format(t.eer * 100) }}</td></tr>
+        <tr><td>False alarms at τ critical {{ help('eer_far') }}</td><td class="num mono">{{ '%.2f%%'|format(t.eer_far * 100) }}</td></tr>
+        <tr><td>AUC {{ help('auc') }}</td><td class="num mono">{{ '%.4f'|format(t.auc) }}</td></tr>
+      </tbody>
+    </table>
+    {% if info.per_class %}
+    <table class="boxed">
+      <thead><tr><th>Test set {{ help('test_rows') }}</th><th class="num">Precision</th><th class="num">Recall</th><th class="num">F1</th></tr></thead>
+      <tbody>
+        <tr><td>Accuracy {{ help('accuracy') }}</td><td class="num mono" colspan="3"><strong>{{ '%.2f%%'|format(info.accuracy * 100) }}</strong></td></tr>
+        {% for cls, v in info.per_class.items() %}
+        <tr><td>{{ cls }} <span class="muted small">{{ '(the user)' if cls == 'User' else '(others)' }}</span></td>
+          <td class="num mono">{{ '%.1f%%'|format(v.precision * 100) }}</td><td class="num mono">{{ '%.1f%%'|format(v.recall * 100) }}</td>
+          <td class="num mono">{{ '%.1f%%'|format(v['f1-score'] * 100) }}</td></tr>
+        {% endfor %}
+        <tr><td class="muted" colspan="4">{{ info.test_rows }} test / {{ info.train_rows }} training keystrokes · {{ info.n_features }} features</td></tr>
+      </tbody>
+    </table>
+    <table class="boxed">
+      <thead><tr><th>Training parameters</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>Trees</td><td class="num mono">{{ info.n_estimators }}</td></tr>
+        {% for k, v in (info.params or {}).items() %}<tr><td>{{ k }}</td><td class="num mono">{{ v }}</td></tr>{% endfor %}
+        {% if info.params_note %}<tr><td colspan="2" class="muted small">{{ info.params_note }}</td></tr>{% endif %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted">No performance data: run <code class="mono">biometrics describe-model</code> on that machine, or refine the model.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if m.profile %}
+  <h3>Live typing statistics {{ help('live_features') }}</h3>
+  <div class="table-wrap">
+  <table class="features">
+    <thead><tr><th>Feature</th><th class="bar-col">Latest window vs. the user's usual range</th><th class="num">Latest</th><th class="num">Usually</th><th></th></tr></thead>
+    <tbody>
+    {% for col, prof in m.profile.items() %}
+      {% set name, unit, desc = feature(col) %}
+      {% set v = s.features.get(col) if online(h) and s.features else none %}
+      {% set sc = scale(col, v, prof) %}
+      {% set outside = v is not none and prof.low is not none and (v < prof.low or v > prof.high) %}
+      <tr class="{{ 'outside' if outside }}">
+        <td title="{{ desc }}">{{ name }}</td>
+        <td class="bar-col">{% if sc %}
+          <div class="range" title="0 – {{ sc.max }}">
+            <span class="band" style="left: {{ sc.low }}%; width: {{ [sc.high - sc.low, 0.8]|max }}%"></span>
+            <span class="median" style="left: {{ sc.typical }}%"></span>
+            {% if sc.value is not none %}<span class="now {{ 'off' if sc.off_scale }}" style="left: {{ sc.value }}%"></span>{% endif %}
+          </div>{% endif %}
+        </td>
+        <td class="num mono">{{ fmt(col, v) }}</td>
+        <td class="num mono muted">{% if prof.low is not none %}{{ fmt(col, prof.low) }}–{{ fmt(col, prof.high) }}{% else %}{{ fmt(col, prof.typical) }}{% endif %}</td>
+        <td>{% if outside %}<span class="badge alert">{{ 'higher' if v > prof.high else 'lower' }}</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</section>
+{% else %}
+<div class="panel empty">No agent has reported yet.</div>
+{% endfor %}
+{% endblock %}

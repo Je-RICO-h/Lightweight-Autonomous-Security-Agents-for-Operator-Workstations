@@ -1,0 +1,20 @@
+{% from "_macros.html" import level with context %}
+{% if log %}
+<div class="table-wrap boxed">
+<table>
+  <thead><tr><th>Time</th>{% if show_host %}<th>Host</th>{% endif %}<th>Event</th><th>Details</th></tr></thead>
+  <tbody>
+  {% for e in log %}
+    <tr>
+      <td class="nowrap mono">{{ e.time|dt }}</td>
+      {% if show_host %}<td class="nowrap"><a href="{{ url_for('host', host_id=e.host_id) }}">{{ e.host_id }}</a></td>{% endif %}
+      <td class="nowrap">{% if e.kind == 'incident' %}{{ level(e.level) }}{% else %}<span class="badge {{ e.data.outcome or '' }}">{{ e.kind }}</span>{% endif %}</td>
+      <td>{{ summarize(e) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="panel empty">Nothing logged yet.</div>
+{% endif %}

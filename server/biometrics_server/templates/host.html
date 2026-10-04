@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "_macros.html" import help, level, outcome, controls with context %}
+{% block title %}{{ host.host_id }}{% endblock %}
+{% block content %}
+{% set s = host.status %}{% set m = host.model %}
+<div class="title-row">
+  <div>
+    <h1><span class="dot {{ 'on' if online(host) }}"></span>{{ host.host_id }}</h1>
+    <p class="sub">{{ host.user or 'unknown user' }} · {{ host.platform or '' }} ·
+      {{ 'online' if online(host) else 'offline' }}, last seen {{ host.last_seen|ago }}</p>
+  </div>
+  {{ controls(host) }}
+</div>
+
+<div class="grid2">
+  <div class="panel">
+    <h2 class="first">Current state</h2>
+    <dl class="facts">
+      <dt>Level</dt>
+      <dd>{% if not online(host) %}<span class="badge">offline</span> <span class="muted">last known:</span> {% endif %}
+        {%- if s.open_incident %}{{ level(s.open_incident) }} popup on screen{% else %}{{ level(s.last_level or 'allow') }}{% endif %}</dd>
+      <dt>Armed {{ help('armed') }}</dt>
+      <dd>{% if s.armed %}<span class="badge armed">yes</span>: the next suspicious window is critical{% else %}no{% endif %}</dd>
+      <dt>Last impostor score {{ help('impostor_score') }}</dt><dd>{{ s.last_score|pct }}</dd>
+      <dt>Windows scored {{ help('window') }}</dt><dd>{{ s.windows or 0 }}{% if s.started %} since {{ s.started|dt }}{% endif %}</dd>
+      <dt>Flagged for review {{ help('pending_review') }}</dt><dd>{{ s.pending_review or 0 }} session(s)</dd>
+      {% if s.refine and s.refine.state and s.refine.state != 'idle' %}
+      <dt>Refine {{ help('refine') }}</dt>
+      <dd>{% if s.refine.state == 'running' %}running since {{ s.refine.since|dt }}{% else %}{{ s.refine.message }} <span class="muted">({{ s.refine.time|ago }})</span>{% endif %}</dd>
+      {% endif %}
+    </dl>
+  </div>
+  <div class="panel">
+    <h2 class="first">Model</h2>
+    {% if m.thresholds %}{% set t = m.thresholds %}
+    <dl class="facts">
+      <dt>Model {{ help('model_hash') }}</dt><dd class="mono">{{ m.hash }}</dd>
+      <dt>τ warn · τ critical</dt><dd>{{ t.tau_warn|pct }} · {{ t.tau_critical|pct }}</dd>
+      <dt>Accuracy {{ help('accuracy') }}</dt><dd>{{ m.info.accuracy|pct if m.info.accuracy is not none else '–' }}</dd>
+      <dt>EER · AUC</dt><dd>{{ '%.2f%%'|format(t.eer * 100) }} · {{ '%.3f'|format(t.auc) }}</dd>
+    </dl>
+    <p><a href="{{ url_for('statistics') }}#{{ host.host_id }}">All statistics →</a></p>
+    {% else %}<p class="muted">No model reported.</p>{% endif %}
+  </div>
+</div>
+
+<h2>Latest incidents <a class="note" href="{{ url_for('incidents', host=host.host_id) }}">(all incidents for {{ host.user or host.host_id }} →)</a></h2>
+{% if incidents %}
+<div class="table-wrap boxed">
+<table>
+  <tbody>
+  {% for i in incidents %}
+    <tr data-event-id="{{ i.id }}" class="clickable" onclick="location.href='{{ url_for('incident', incident_id=i.incident_id) }}'">
+      <td class="nowrap mono">{{ i.time|dt }}</td>
+      <td>{{ level(i.level) }}</td>
+      <td class="num">{{ i.data.impostor_score|pct }}</td>
+      <td class="muted">{{ glossary.TRIGGERS.get(i.data.trigger, i.data.trigger) }}</td>
+      <td class="nowrap">{{ outcome(i.response) }}</td>
+      <td><a href="{{ url_for('incident', incident_id=i.incident_id) }}">details →</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}<div class="panel empty">No incidents: every scored window so far matched the enrolled user.</div>{% endif %}
+
+<h2>Recent log <a class="note" href="{{ url_for('logs', host=host.host_id) }}">(full log →)</a></h2>
+{% include "_log_table.html" %}
+{% endblock %}

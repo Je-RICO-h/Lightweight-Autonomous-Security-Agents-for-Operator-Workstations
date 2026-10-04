@@ -1,0 +1,80 @@
+{% macro help(key) -%}
+  {%- if key in glossary.TERMS -%}
+    <a class="help" href="{{ url_for('help_page') }}#{{ key }}" title="{{ glossary.TERMS[key][1] }}">?</a>
+  {%- elif key in glossary.LEVELS -%}
+    <a class="help" href="{{ url_for('help_page') }}#level-{{ key }}" title="{{ glossary.LEVELS[key] }}">?</a>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro level(name) -%}
+  <span class="badge {{ name }}" title="{{ glossary.LEVELS.get(name, '') }}">{{ name }}</span>
+{%- endmacro %}
+
+{% macro outcome(response) -%}
+  {%- if response -%}
+    <span class="badge {{ response.data.outcome }}" title="{{ glossary.OUTCOMES[response.data.outcome] }}">{{ response.data.outcome.replace('_', ' ') }}</span>
+  {%- else -%}
+    <span class="badge" title="{{ glossary.OUTCOMES[None] }}">no answer</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{# Lock / Refine buttons for one host #}
+{% macro controls(h, show_refine=true) -%}
+  {% set s = h.status %}
+  <span class="controls">
+    <form method="post" action="{{ url_for('host_command', host_id=h.host_id, command='lockout') }}"
+          onsubmit="return confirm('Lock {{ h.host_id }} now? The user must re-authenticate to continue.')">
+      <button class="btn danger" {{ 'disabled' if not online(h) }} title="{{ glossary.TERMS.lock[1] }}">Lock</button>
+    </form>
+    {% if show_refine %}
+    <form method="post" action="{{ url_for('host_command', host_id=h.host_id, command='refine') }}"
+          onsubmit="return confirm('Refine the model on {{ h.host_id }} with {{ s.pending_review or 0 }} flagged session(s)?')">
+      <button class="btn" {{ 'disabled' if not online(h) or (s.refine and s.refine.state == 'running') }}
+              title="{{ glossary.TERMS.refine[1] }}">
+        {% if s.refine and s.refine.state == 'running' %}Refining…{% else %}Refine model ({{ s.pending_review or 0 }}){% endif %}
+      </button>
+    </form>
+    {% endif %}
+  </span>
+{%- endmacro %}
+
+{# The impostor-score scale: allow / challenge / alert zones, τ ticks, and optional score markers #}
+{% macro threshold_scale(t, recent=None, last=None, marker_label='latest') -%}
+  <div class="scale-wrap">
+    <div class="scale">
+      <div class="z-allow" style="width: {{ t.tau_warn * 100 }}%" title="allow"></div>
+      <div class="z-warn" style="width: {{ (t.tau_critical - t.tau_warn) * 100 }}%" title="counts toward a challenge"></div>
+      <div class="z-crit" style="flex:1" title="counts toward an alert"></div>
+      {% for v in recent or [] %}<span class="dot-score" style="left: {{ v * 100 }}%"></span>{% endfor %}
+      {% if last is not none %}<span class="marker" style="left: {{ last * 100 }}%" title="{{ marker_label }}: {{ last|pct }}"><b>{{ last|pct }}</b></span>{% endif %}
+    </div>
+    <span class="tick" style="left: 0; transform:none">0%</span>
+    <span class="tick" style="left: {{ t.tau_warn * 100 }}%">τ warn {{ t.tau_warn|pct }}</span>
+    <span class="tick" style="left: {{ t.tau_critical * 100 }}%">τ critical {{ t.tau_critical|pct }}</span>
+    <span class="tick" style="right: 0; left:auto; transform:none">100%</span>
+  </div>
+{%- endmacro %}
+
+{# One incident's flagged parameters, each explained #}
+{% macro reasons(list) -%}
+  {% set max_impact = list|map(attribute='impact')|max %}
+  {% for r in list %}
+    {% set name, unit, desc = feature(r.feature) %}
+    {% set x = explain(r) %}
+    <div class="reason {{ 'flagged' if x.flagged }}">
+      <div class="reason-head">
+        <span class="reason-name" title="{{ desc }}">{{ loop.index }}. {{ name }}</span>
+        <span class="mono muted small">{{ r.feature }}</span>
+        {% if x.flagged %}<span class="badge alert">flagged: {{ r.direction }}</span>{% else %}<span class="badge">{{ r.direction or 'no usual value' }}</span>{% endif %}
+        <span class="impact" title="SHAP impact"><span class="bar" style="width: {{ (90 * r.impact / max_impact)|round|int if max_impact else 0 }}px"></span><span class="mono">SHAP +{{ '%.2f'|format(r.impact) }}</span></span>
+      </div>
+      <div class="reason-grid">
+        <div><span class="muted">This window {{ help('value') }}</span><strong>{{ fmt(r.feature, r.value) }}</strong></div>
+        <div><span class="muted">Usually {{ help('typical') }}</span><strong>{% if r.typical_low is not none %}{{ fmt(r.feature, r.typical_low) }} – {{ fmt(r.feature, r.typical_high) }}{% else %}{{ fmt(r.feature, r.typical) }}{% endif %}</strong></div>
+      </div>
+      <p class="reason-text">{{ x.what }}</p>
+      <p class="reason-text muted">{{ x.shap }}</p>
+      {% if desc %}<p class="reason-text small muted">What this feature is: {{ desc }}</p>{% endif %}
+    </div>
+  {% endfor %}
+{%- endmacro %}

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "biometrics"
+version = "0.2.0"
+description = "Continuous keystroke-biometric identification with a local protection agent and an optional dashboard server."
+requires-python = ">=3.10"
+dependencies = [
+    "xgboost>=2.0",
+    "joblib",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "pynput",
+    "shap",
+    "requests",
+]
+
+[project.optional-dependencies]
+# The dashboard server (server/biometrics_server) needs only Flask; it never
+# imports the biometrics package, so it can run on a machine without the
+# ML stack: `pip install flask` + `python -m biometrics_server` from server/.
+server = ["flask>=3.0"]
+
+[project.scripts]
+biometrics = "biometrics.cli.main:main"
+biometrics-server = "biometrics_server.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src", "server"]
+
+[tool.setuptools.package-data]
+biometrics_server = ["templates/*.html", "static/*"]

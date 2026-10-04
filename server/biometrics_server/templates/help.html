@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Help{% endblock %}
+{% block live %}0{% endblock %}
+{% block content %}
+<div class="help-page">
+<h1>What everything means</h1>
+<p class="sub">Every "?" on the dashboard links here.</p>
+
+<section class="panel">
+  <h2 style="margin-top:0">How the agent works</h2>
+  <p>Each monitored machine runs its own agent, which follows four steps:</p>
+  <ol>
+    <li><strong>Sensory:</strong> it records keystroke timing continuously.</li>
+    <li><strong>Cognitive:</strong> every window of keystrokes is scored by the owner's XGBoost model, and the policy turns the score into a level.</li>
+    <li><strong>Action:</strong> it responds step by step (challenge → alert → critical).</li>
+    <li><strong>Explainable / human-in-the-loop:</strong> it shows the person at the keyboard <em>why</em> it reacted and asks them to re-authenticate.</li>
+  </ol>
+  <p id="data_boundary"><strong>{{ glossary.TERMS.data_boundary[0] }}:</strong> {{ glossary.TERMS.data_boundary[1] }}</p>
+</section>
+
+<section class="panel">
+  <h2 style="margin-top:0">Reading an incident</h2>
+  <p>Each incident page lists the features that pushed that window toward "not the enrolled user", strongest first. For each one it shows:</p>
+  <ul>
+    <li><strong>This window</strong>: the feature's value, averaged over the window's keystrokes.</li>
+    <li><strong>Usually</strong>: the middle 50% of the user's own training data.</li>
+    <li><strong>Flagged</strong>: the value was above or below that range.</li>
+    <li><strong>SHAP</strong>: how much the feature moved the decision.</li>
+  </ul>
+  <p>SHAP is measured in log-odds: +1.0 means the feature alone made "someone else" about e<sup>1</sup> ≈ 2.7× more likely than the model's average starting point. Contributions add up across features, which is why a value inside the usual range can still appear: it counted in combination with the others.</p>
+</section>
+
+<section class="panel">
+  <h2 style="margin-top:0">Dashboard controls</h2>
+  <dl>
+    <dt id="lock">Lock</dt><dd>{{ glossary.TERMS.lock[1] }}</dd>
+    <dt id="refine">Refine model</dt><dd>{{ glossary.TERMS.refine[1] }}</dd>
+    <dt id="pending_review">Flagged for review</dt><dd>{{ glossary.TERMS.pending_review[1] }}</dd>
+  </dl>
+  <p class="note">Toasts appear for every new alert and critical incident (critical ones stay until dismissed). The Incidents tab shows a count of incidents you haven't looked at yet.</p>
+</section>
+
+<section>
+  <h2>Levels</h2>
+  <dl>
+  {% for name, text in glossary.LEVELS.items() %}
+    <dt id="level-{{ name }}"><span class="badge {{ name }}">{{ name }}</span></dt><dd>{{ text }}</dd>
+  {% endfor %}
+  </dl>
+</section>
+
+<section>
+  <h2>Why a level was reached</h2>
+  <dl>
+  {% for key, text in glossary.TRIGGERS.items() %}<dt class="mono">{{ key }}</dt><dd>{{ text }}</dd>{% endfor %}
+  </dl>
+</section>
+
+<section>
+  <h2>The user's answer</h2>
+  <dl>
+  {% for key, text in glossary.OUTCOMES.items() %}<dt>{{ key.replace('_', ' ') if key else 'no answer' }}</dt><dd>{{ text }}</dd>{% endfor %}
+  </dl>
+</section>
+
+<section>
+  <h2>Scores, thresholds and metrics</h2>
+  <dl>
+  {% for key, (name, text) in glossary.TERMS.items() if key not in ('data_boundary', 'lock', 'refine', 'pending_review') %}
+    <dt id="{{ key }}">{{ name }}</dt><dd>{{ text }}</dd>
+  {% endfor %}
+  </dl>
+</section>
+
+<section>
+  <h2>Typing features</h2>
+  <p class="note">These are the features that can appear under "What was wrong". Times are shown in milliseconds; shares in %.</p>
+  <div class="table-wrap boxed">
+  <table>
+    <thead><tr><th>Feature</th><th>Column</th><th>Meaning</th></tr></thead>
+    <tbody>
+    {% for col, (name, unit, text) in glossary.FEATURES.items() %}
+      <tr id="f-{{ col }}"><td class="nowrap">{{ name }}</td><td class="mono">{{ col }}</td><td>{{ text }}</td></tr>
+    {% endfor %}
+    {% for col, (name, unit, text) in glossary.FEATURE_PATTERNS.items() %}
+      <tr><td class="nowrap">{{ name }}</td><td class="mono">{{ col }}</td><td>{{ text }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+</div>
+{% endblock %}

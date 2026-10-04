@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Dashboard server runtime state: SQLite DB, PID, log (not source)
+server/data/
+
+# Client-local retrain review queue (session-specific, not source)
+data/retrain_review/
+
+# Fallback output for live inference sessions (session-specific, not source)
+data/review/
